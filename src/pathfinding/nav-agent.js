@@ -10,6 +10,14 @@ module.exports = AFRAME.registerComponent('nav-agent', {
     this.group = null;
     this.path = [];
     this.raycaster = new THREE.Raycaster();
+    this.camera = null;
+    this.lookControls = null;
+    this.el.object3D.traverse(node => {
+        if (node instanceof THREE.Camera) {
+            this.camera = node
+            this.lookControls = node.el.components['look-controls']
+        }
+    })
   },
   remove: function () {
     this.system.removeAgent(this);
@@ -25,6 +33,11 @@ module.exports = AFRAME.registerComponent('nav-agent', {
     const vDest = new THREE.Vector3();
     const vDelta = new THREE.Vector3();
     const vNext = new THREE.Vector3();
+    const vQuaternion = new THREE.Quaternion();
+    const vOriQuaternion = new THREE.Quaternion();
+    const vTarget = new THREE.Vector3();
+    const vEulerRot = new THREE.Euler();
+    const vPreEulerRot = new THREE.Euler();
 
     return function (t, dt) {
       const el = this.el;
@@ -78,9 +91,40 @@ module.exports = AFRAME.registerComponent('nav-agent', {
         gazeTarget = vWaypoint;
       }
 
-      // Look at the next waypoint.
-      gazeTarget.y = vCurrent.y;
-      el.object3D.lookAt(gazeTarget);
+      // Smoothly rotate when navigating around corners.
+      // 如果子节点中存在lookControls，那么将旋转的对象设置为lookControls
+      const rotateTarget = this.lookControls ? this.camera : el.object3D
+      // vTarget为lookAt的对象，高度y和rotateTarget的高度一致
+      rotateTarget.getWorldPosition(vTarget)
+      vTarget.setX(gazeTarget.x)
+      vTarget.setZ(gazeTarget.z)
+      // 将未转动前的姿态保存到vOriQuaternion中
+      vOriQuaternion.copy(rotateTarget.quaternion)
+      // 先设置lookAt，即转动rotateTarget
+      rotateTarget.lookAt(vTarget);
+      // 获取lookAt后，rotateTarget的姿态数据vQuaternion
+      vQuaternion.copy(rotateTarget.quaternion)
+      // 重置，将rotateTarget的姿态重置到未转动前的姿态
+      rotateTarget.setRotationFromQuaternion(vOriQuaternion)
+      
+      if (this.lookControls) {
+          if((this.lookControls.touchStarted && this.lookControls.data.touchEnabled) ||
+             (this.lookControls.mouseDown)) {
+              // 如果在运动过程中用户拖动视角，则不再处理转动
+          } else {
+              // 如果需要转动的对象是启用了lookControls的camera, 不能直接旋转Three.js camera对象，
+              // 必须增量地设置lookControls.yawObject.rotation.y，全量设置lookControls.pitchObject.rotation.x
+              // 这样就可以和lookControl保持兼容
+              vPreEulerRot.setFromQuaternion(vOriQuaternion, 'YXZ')
+              vOriQuaternion.slerp(vQuaternion, 0.1)
+              vEulerRot.setFromQuaternion(vOriQuaternion, 'YXZ')
+              this.lookControls.pitchObject.rotation.x = vEulerRot.x
+              this.lookControls.yawObject.rotation.y += (vEulerRot.y - vPreEulerRot.y)
+          }
+      } else {
+          // 最后使用四元数差值进行旋转
+          rotateTarget.quaternion.slerp(vQuaternion, 0.1)
+      }
 
       // Raycast against the nav mesh, to keep the agent moving along the
       // ground, not traveling in a straight line from higher to lower waypoints.
