@@ -115,13 +115,23 @@ module.exports = AFRAME.registerComponent("nav-agent", {
       // Use PatrolJS pathfinding system to get shortest path to target.
       if (!this.path.length) {
         const position = this.el.object3D.position;
+        vDest.copy(data.destination);
         this.group = this.group || this.system.getGroup(position);
-        this.path =
-          this.system.getPath(
-            position,
-            vDest.copy(data.destination),
-            this.group
-          ) || [];
+
+        // ------------ fix me-----------------
+        // 当起始点和目的点在同一个navMesh的面中时，this.system.getPath可能不会返回两点间的直线路径，可能返回一个拐弯的路径
+        // 因此加入下面的判断逻辑（TODO：深入了解pathfinding算法后，再确认这种验证逻辑是否正确，就目前来看，起到了一定的优化作用）
+        const closestNode = this.system.getNode(position, this.group);
+        const farthestNode = this.system.getNode(vDest, this.group);
+        // 起始点和目的点都在同一个node中，则直接返回两点间的直线路径
+        if (closestNode && farthestNode && farthestNode.id === closestNode.id) {
+          this.path = [vDest.clone()];
+        }
+        // ------------- End ------------------
+        else {
+          this.path = this.system.getPath(position, vDest, this.group) || [];
+        }
+
         el.emit("navigation-start");
       }
 
