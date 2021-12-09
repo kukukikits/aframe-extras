@@ -114,7 +114,14 @@ module.exports = AFRAME.registerComponent('movement-controls', {
       if (data.constrainToNavMesh
           && velocityCtrl.isNavMeshConstrained !== false) {
 
-        if (velocity.lengthSq() < EPS) return;
+        if (velocity.lengthSq() < EPS) {
+            // TODO: 检查是否有效
+            // can't cache this.navNode because when the start position changed by other controls 
+            // this.navNode may not be the closest node any more, we need recompute it. Otherwise,
+            // clampStep may result in wrong clamp
+            this.navNode = null; // give this.navNode a chance to recalculate
+            return;
+        };
 
         start.copy(el.object3D.position);
         end
