@@ -30,6 +30,18 @@ module.exports = AFRAME.registerComponent("nav-agent", {
     this.group = null;
     this.path = [];
   },
+  // check if look-control's magicWindowControls is enabled
+  isMWControlsEnabled: function () {
+    var lookCtls = this.lookControls;
+    if (
+      lookCtls &&
+      lookCtls.magicWindowControls &&
+      lookCtls.magicWindowControls.enabled
+    ) {
+      return true;
+    }
+    return false;
+  },
   _getGazeTarget: function (vTarget, rotateTarget, waypoint) {
     if (this.data.gazeTarget && this.data.gazeTarget.object3D) {
       vTarget.copy(this.data.gazeTarget.object3D.position);
@@ -80,6 +92,11 @@ module.exports = AFRAME.registerComponent("nav-agent", {
           vPreEulerRot.setFromQuaternion(vOriQuaternion, "YXZ");
           vOriQuaternion.slerp(vQuaternion, slerp);
           vEulerRot.setFromQuaternion(vOriQuaternion, "YXZ");
+          // 将magicWindowControl的转动参数置空，否则会影响rotationDone条件的形成
+          let mwc = this.lookControls.magicWindowDeltaEuler;
+          mwc.x = 0;
+          mwc.y = 0;
+          mwc.z = 0;
           this.lookControls.pitchObject.rotation.x +=
             vEulerRot.x - vPreEulerRot.x;
           this.lookControls.yawObject.rotation.y +=
@@ -154,35 +171,40 @@ module.exports = AFRAME.registerComponent("nav-agent", {
       if (distance < speed) {
         // If <1 step from current waypoint, discard it and move toward next.
         let moved = this.path.shift();
-        const rotationGap = THREE.MathUtils.radToDeg(
-          rotateTarget.quaternion.angleTo(vQuaternion)
-        );
+        const mwcEnabled = this.isMWControlsEnabled();
+        const rotationGap = mwcEnabled
+          ? 0
+          : THREE.MathUtils.radToDeg(
+              rotateTarget.quaternion.angleTo(vQuaternion)
+            );
         const rotationDone = Math.abs(rotationGap) < 0.2; // default slerp interpolation factor is 0.1
         // After discarding the last waypoint, exit pathfinding.
         if (!this.path.length && rotationDone) {
           // 获取总共需要旋转多少的姿态数据到vQuaternion
-          this._getVQuaternion(
-            vQuaternion,
-            vOriQuaternion,
-            rotateTarget,
-            vTarget,
-            moved
-          );
-          this._updateRotation(
-            vPreEulerRot,
-            vEulerRot,
-            vOriQuaternion,
-            vQuaternion,
-            rotateTarget,
-            1
-          );
+          if (!mwcEnabled) {
+            this._getVQuaternion(
+              vQuaternion,
+              vOriQuaternion,
+              rotateTarget,
+              vTarget,
+              moved
+            );
+            this._updateRotation(
+              vPreEulerRot,
+              vEulerRot,
+              vOriQuaternion,
+              vQuaternion,
+              rotateTarget,
+              1
+            );
+          }
           this.el.setAttribute("nav-agent", {
             active: false,
             gazeTarget: null,
           }); // deactive and clear gazeTarget
           el.emit("navigation-end");
           return;
-        } else if (!this.path.length && !rotationDone) {
+        } else if (!this.path.length && !mwcEnabled && !rotationDone) {
           // if arrived target position but rotation is not reached the target
           // continue move
           this.path.push(moved);
@@ -198,20 +220,22 @@ module.exports = AFRAME.registerComponent("nav-agent", {
       }
 
       // 获取总共需要旋转多少的姿态数据到vQuaternion
-      this._getVQuaternion(
-        vQuaternion,
-        vOriQuaternion,
-        rotateTarget,
-        vTarget,
-        gazeTarget
-      );
-      this._updateRotation(
-        vPreEulerRot,
-        vEulerRot,
-        vOriQuaternion,
-        vQuaternion,
-        rotateTarget
-      );
+      if (!this.isMWControlsEnabled()) {
+        this._getVQuaternion(
+          vQuaternion,
+          vOriQuaternion,
+          rotateTarget,
+          vTarget,
+          gazeTarget
+        );
+        this._updateRotation(
+          vPreEulerRot,
+          vEulerRot,
+          vOriQuaternion,
+          vQuaternion,
+          rotateTarget
+        );
+      }
 
       vCurrent.copy(vNext);
 
