@@ -130,10 +130,17 @@ module.exports = AFRAME.registerComponent('movement-controls', {
           .add(start);
 
         const nav = el.sceneEl.systems.nav;
+
         this.navGroup = this.navGroup === null ? nav.getGroup(start) : this.navGroup;
-        this.navNode = this.navNode || nav.getNode(start, this.navGroup);
-        this.navNode = nav.clampStep(start, end, this.navGroup, this.navNode, clampedEnd);
-        el.object3D.position.copy(clampedEnd);
+        if (this.navGroup != null && !this.navNode) {
+            this.navNode = nav.getNode(start, this.navGroup);
+        }
+        if (this.navNode) {
+            // navNode必须存在，否则clampStep没用。异常情况下可能把clampedEnd设置到navMesh外面
+            this.navNode = nav.clampStep(start, end, this.navGroup, this.navNode, clampedEnd);
+            el.object3D.position.copy(clampedEnd);
+        }
+        
       } else if (el.hasAttribute('velocity')) {
         el.setAttribute('velocity', velocity);
       } else {

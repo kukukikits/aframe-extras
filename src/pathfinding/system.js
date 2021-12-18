@@ -73,7 +73,8 @@ module.exports = AFRAME.registerSystem('nav', {
    */
   getNode: function (position, groupID) {
     return this.navMesh
-      ? pathfinder.getClosestNode(position, ZONE, groupID, true)
+      // disable geometry within check. Player would get stuck and overstep the boundary if set to true.
+      ? pathfinder.getClosestNode(position, ZONE, groupID, false)
       : null;
   },
 
