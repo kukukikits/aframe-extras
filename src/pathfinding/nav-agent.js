@@ -4,6 +4,7 @@ module.exports = AFRAME.registerComponent("nav-agent", {
     active: { default: false },
     speed: { default: 2 },
     gazeTarget: { type: "selector" }, // gaze at target when navigating
+    mode: { default: "animate", oneOf: ["teleport", "animate"] }, // 移动模式
   },
   init: function () {
     this.system = this.el.sceneEl.systems.nav;
@@ -165,6 +166,43 @@ module.exports = AFRAME.registerComponent("nav-agent", {
       const vWaypoint = this.path[0];
       vDelta.subVectors(vWaypoint, vCurrent);
 
+      // 如果是传送模式，直接设置终点位置和视角
+      if (this.data.mode === "teleport") {
+        let targetPoint = this.path[this.path.length - 1];
+        vCurrent.copy(targetPoint);
+        // 获取总共需要旋转多少的姿态数据到vQuaternion
+        // 如果指定了gazeTarget，再旋转
+        if (
+          !this.isMWControlsEnabled() &&
+          this.data.gazeTarget &&
+          this.data.gazeTarget.object3D
+        ) {
+          this._getVQuaternion(
+            vQuaternion,
+            vOriQuaternion,
+            rotateTarget,
+            vTarget,
+            null
+          );
+          this._updateRotation(
+            vPreEulerRot,
+            vEulerRot,
+            vOriQuaternion,
+            vQuaternion,
+            rotateTarget,
+            1
+          );
+        }
+
+        this.el.setAttribute("nav-agent", {
+          active: false,
+          gazeTarget: null,
+        }); // deactive and clear gazeTarget
+        el.emit("navigation-end");
+        return;
+      }
+
+      // animate mode
       const distance = vDelta.length();
       let gazeTarget;
 
