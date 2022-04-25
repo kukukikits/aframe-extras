@@ -1,3 +1,4 @@
+var PI_2 = Math.PI / 2;
 module.exports = AFRAME.registerComponent("nav-agent", {
   schema: {
     destination: { type: "vec3" },
@@ -44,11 +45,15 @@ module.exports = AFRAME.registerComponent("nav-agent", {
     return false;
   },
   _getGazeTarget: function (vTarget, rotateTarget, waypoint) {
+    // vTarget为lookAt的对象，高度y和rotateTarget的高度一致, 防止视角旋转过程中出现视角倒转的问题
+    // TODO: 解决在vTarget高度保持和gazeTarget一致时，视角切换可能出现的视角倒转问题，可在编辑器中复现（多次切换文字、图片等）
+    rotateTarget.getWorldPosition(vTarget);
     if (this.data.gazeTarget && this.data.gazeTarget.object3D) {
-      vTarget.copy(this.data.gazeTarget.object3D.position);
+        let point = this.data.gazeTarget.object3D.position
+        vTarget.setX(point.x);
+        vTarget.setZ(point.z);
+        // vTarget.copy(point);
     } else {
-      // vTarget为lookAt的对象，高度y和rotateTarget的高度一致
-      rotateTarget.getWorldPosition(vTarget);
       vTarget.setX(waypoint.x);
       vTarget.setZ(waypoint.z);
     }
@@ -98,10 +103,13 @@ module.exports = AFRAME.registerComponent("nav-agent", {
           mwc.x = 0;
           mwc.y = 0;
           mwc.z = 0;
-          this.lookControls.pitchObject.rotation.x +=
+          let pitchObject = this.lookControls.pitchObject
+          pitchObject.rotation.x +=
             vEulerRot.x - vPreEulerRot.x;
+          pitchObject.rotation.x = Math.max(-PI_2, Math.min(PI_2, pitchObject.rotation.x));
           this.lookControls.yawObject.rotation.y +=
             vEulerRot.y - vPreEulerRot.y;
+          
         }
       }
     } else {
