@@ -1449,7 +1449,9 @@ module.exports = AFRAME.registerComponent('movement-controls', {
 
   init: function init() {
     var el = this.el;
-
+    if (!this.data.camera) {
+      this.data.camera = el.querySelector('[camera]');
+    }
     this.velocityCtrl = null;
 
     this.velocity = new THREE.Vector3();
@@ -1527,16 +1529,29 @@ module.exports = AFRAME.registerComponent('movement-controls', {
 
       if (data.constrainToNavMesh && velocityCtrl.isNavMeshConstrained !== false) {
 
-        if (velocity.lengthSq() < EPS) return;
+        if (velocity.lengthSq() < EPS) {
+          // TODO: 检查是否有效
+          // can't cache this.navNode because when the start position changed by other controls 
+          // this.navNode may not be the closest node any more, we need recompute it. Otherwise,
+          // clampStep may result in wrong clamp
+          this.navNode = null; // give this.navNode a chance to recalculate
+          return;
+        };
 
         start.copy(el.object3D.position);
         end.copy(velocity).multiplyScalar(dt / 1000).add(start);
 
         var nav = el.sceneEl.systems.nav;
+
         this.navGroup = this.navGroup === null ? nav.getGroup(start) : this.navGroup;
-        this.navNode = this.navNode || nav.getNode(start, this.navGroup);
-        this.navNode = nav.clampStep(start, end, this.navGroup, this.navNode, clampedEnd);
-        el.object3D.position.copy(clampedEnd);
+        if (this.navGroup != null && !this.navNode) {
+          this.navNode = nav.getNode(start, this.navGroup);
+        }
+        if (this.navNode) {
+          // navNode必须存在，否则clampStep没用。异常情况下可能把clampedEnd设置到navMesh外面
+          this.navNode = nav.clampStep(start, end, this.navGroup, this.navNode, clampedEnd);
+          el.object3D.position.copy(clampedEnd);
+        }
       } else if (el.hasAttribute('velocity')) {
         el.setAttribute('velocity', velocity);
       } else {

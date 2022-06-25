@@ -20,7 +20,7 @@ module.exports = AFRAME.registerComponent('animation-mixer', {
     loop: { default: 'repeat', oneOf: Object.keys(LoopMode) },
     repetitions: { default: Infinity, min: 0 },
     timeScale: { default: 1 },
-    startFrame: { default: 0 }
+    // startFrame: { default: 0 } TODO： 先禁用这个属性，这个属性会导致动画播放不太正常，也有可能是我自己使用不对
   },
 
   init: function () {
@@ -123,7 +123,7 @@ module.exports = AFRAME.registerComponent('animation-mixer', {
           .fadeIn(data.crossFadeDuration)
           .play();
         this.activeActions.push(action);
-        this.mixer.setTime(data.startFrame / 1000);
+        // this.mixer.setTime(data.startFrame / 1000);
       }
     }
   },
