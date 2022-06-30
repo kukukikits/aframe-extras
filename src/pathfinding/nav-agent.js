@@ -6,6 +6,7 @@ module.exports = AFRAME.registerComponent("nav-agent", {
     speed: { default: 2 },
     gazeTarget: { type: "selector" }, // gaze at target when navigating
     mode: { default: "animate", oneOf: ["teleport", "animate"] }, // 移动模式
+    viewSync: {default: true, type: 'boolean'}  // 是否同步相机视角
   },
   init: function () {
     this.system = this.el.sceneEl.systems.nav;
@@ -181,7 +182,7 @@ module.exports = AFRAME.registerComponent("nav-agent", {
         // 获取总共需要旋转多少的姿态数据到vQuaternion
         // 如果指定了gazeTarget，再旋转
         if (
-          !this.isMWControlsEnabled() &&
+          this.data.viewSync && !this.isMWControlsEnabled() &&
           this.data.gazeTarget &&
           this.data.gazeTarget.object3D
         ) {
@@ -218,16 +219,19 @@ module.exports = AFRAME.registerComponent("nav-agent", {
         // If <1 step from current waypoint, discard it and move toward next.
         let moved = this.path.shift();
         const mwcEnabled = this.isMWControlsEnabled();
-        const rotationGap = mwcEnabled
+        let rotationGap = mwcEnabled
           ? 0
           : THREE.MathUtils.radToDeg(
               rotateTarget.quaternion.angleTo(vQuaternion)
             );
+        if (!this.data.viewSync) {
+            rotationGap = 0
+        }
         const rotationDone = Math.abs(rotationGap) < 0.2; // default slerp interpolation factor is 0.1
         // After discarding the last waypoint, exit pathfinding.
         if (!this.path.length && rotationDone) {
           // 获取总共需要旋转多少的姿态数据到vQuaternion
-          if (!mwcEnabled) {
+          if (!mwcEnabled && this.data.viewSync) {
             this._getVQuaternion(
               vQuaternion,
               vOriQuaternion,
@@ -266,7 +270,7 @@ module.exports = AFRAME.registerComponent("nav-agent", {
       }
 
       // 获取总共需要旋转多少的姿态数据到vQuaternion
-      if (!this.isMWControlsEnabled()) {
+      if (!this.isMWControlsEnabled() && this.data.viewSync) {
         this._getVQuaternion(
           vQuaternion,
           vOriQuaternion,
