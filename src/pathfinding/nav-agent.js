@@ -311,16 +311,21 @@ module.exports = AFRAME.registerComponent("nav-agent", {
       // }
     };
   })(),
-  getNavStart: function(obj3D) {
-    // return obj3D.position;
-    if (!obj3D._navPoint) {
-        obj3D._navPoint = new THREE.Vector3();
-        obj3D._navPoint.copy(obj3D.position);
-    }
-    return obj3D._navPoint;
+  getNavStart:function(obj3D) {
+        if (!obj3D._navPoint) {
+            obj3D._navPoint = this.system.getNavStart(obj3D.position);
+            if (!obj3D._navPoint) {
+                obj3D._navPoint = new THREE.Vector3();
+                obj3D._navPoint.copy(obj3D.position);
+            } else {
+                obj3D._navPoint = obj3D._navPoint.point
+            }
+        }
+        return obj3D._navPoint;
   },
   clearState: function() {
       delete this.el.object3D._navPoint;
+      this.updateNavLocation()
   },
   terrianMove: (function(){
     let wPos = new THREE.Vector3();
@@ -349,8 +354,8 @@ module.exports = AFRAME.registerComponent("nav-agent", {
                 }
             }
         }
-        
-        obj3D.position.copy(interset.point);
+        obj3D.position.y = interset.point.y
+        // obj3D.position.copy(interset.point);
       }
   })(),
 });

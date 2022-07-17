@@ -102,23 +102,28 @@ module.exports = AFRAME.registerSystem("nav", {
     return this.terrianMesh;
   },
 
-  getTerrianIntersect: (function () {
+  getTerrianIntersect: function (point) {
+    return this.projectPoint(point, this.terrianMesh);
+  },
+
+  getNavStart: function (point) {
+    return this.projectPoint(point, this.navMesh);
+  },
+
+  // 把点point从上到下投影到terrian mesh上，并返回第一个交点信息
+  projectPoint: (function () {
     let origin = new THREE.Vector3();
     let direction = new THREE.Vector3(0, -1, 0);
     let raycaster = new THREE.Raycaster(origin, direction);
     let target = [];
-    return function (point) {
-      if (!this.terrianMesh) {
+    return function (point, terrian) {
+      if (!terrian || !point) {
         return;
       }
       origin.copy(point);
       origin.y += 1.5;
       target.length = 0;
-      let intersections = raycaster.intersectObject(
-        this.terrianMesh,
-        true,
-        target
-      );
+      let intersections = raycaster.intersectObject(terrian, true, target);
       if (intersections && intersections.length > 0) {
         let res = intersections[0];
         target.length = 0;
