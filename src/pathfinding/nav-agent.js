@@ -28,6 +28,7 @@ module.exports = AFRAME.registerComponent("nav-agent", {
   },
   update: function () {
     this.path.length = 0;
+    this.clearState()
   },
   updateNavLocation: function () {
     this.group = null;
@@ -127,7 +128,6 @@ module.exports = AFRAME.registerComponent("nav-agent", {
     const vTarget = new THREE.Vector3();
     const vEulerRot = new THREE.Euler();
     const vPreEulerRot = new THREE.Euler();
-
     return function (t, dt) {
       const el = this.el;
       const data = this.data;
@@ -138,10 +138,11 @@ module.exports = AFRAME.registerComponent("nav-agent", {
       // Smoothly rotate when navigating around corners.
       // 如果子节点中存在lookControls，那么将旋转的对象设置为lookControls
       const rotateTarget = this.lookControls ? this.camera : el.object3D;
-
+      const vCurrent = this.getNavStart(el.object3D);
       // Use PatrolJS pathfinding system to get shortest path to target.
       if (!this.path.length) {
-        const position = this.el.object3D.position;
+        // const position = this.el.object3D.position;
+        const position = vCurrent;
         vDest.copy(data.destination);
         this.group = this.group || this.system.getGroup(position);
 
@@ -171,7 +172,8 @@ module.exports = AFRAME.registerComponent("nav-agent", {
       }
 
       // Current segment is a vector from current position to next waypoint.
-      const vCurrent = el.object3D.position;
+      // const vCurrent = el.object3D.position;
+    //   const vCurrent = this.getNavStart(el.object3D);
       const vWaypoint = this.path[0];
       vDelta.subVectors(vWaypoint, vCurrent);
 
@@ -179,6 +181,7 @@ module.exports = AFRAME.registerComponent("nav-agent", {
       if (this.data.mode === "teleport") {
         let targetPoint = this.path[this.path.length - 1];
         vCurrent.copy(targetPoint);
+        this.terrianMove(el.object3D,dt);
         // 获取总共需要旋转多少的姿态数据到vQuaternion
         // 如果指定了gazeTarget，再旋转
         if (
@@ -288,6 +291,7 @@ module.exports = AFRAME.registerComponent("nav-agent", {
       }
 
       vCurrent.copy(vNext);
+      this.terrianMove(el.object3D,dt);
 
       // 不使用下面的这个，会导致视角闪烁
       // Raycast against the nav mesh, to keep the agent moving along the
@@ -306,5 +310,47 @@ module.exports = AFRAME.registerComponent("nav-agent", {
       //   vCurrent.add(vDelta.setLength(speed));
       // }
     };
+  })(),
+  getNavStart: function(obj3D) {
+    // return obj3D.position;
+    if (!obj3D._navPoint) {
+        obj3D._navPoint = new THREE.Vector3();
+        obj3D._navPoint.copy(obj3D.position);
+    }
+    return obj3D._navPoint;
+  },
+  clearState: function() {
+      delete this.el.object3D._navPoint;
+  },
+  terrianMove: (function(){
+    let wPos = new THREE.Vector3();
+    let deltaV = new THREE.Vector3();
+    let deltaProject = new THREE.Vector3();
+    const yNormal = new THREE.Vector3(0,1,0);
+    return function(obj3D,dt) {
+        obj3D.getWorldPosition(wPos);
+        obj3D.position.copy(obj3D._navPoint);
+        let interset = this.system.getTerrianIntersect(obj3D._navPoint);
+        if (!interset) {
+            return
+        }
+        
+        // 检测上下坡
+        if (!interset.point.equals(wPos)) {
+            deltaV.subVectors(interset.point, wPos);
+            deltaProject.copy(deltaV);
+            deltaProject.projectOnPlane(yNormal);
+            let angle = deltaProject.lengthSq() == 0 ? Infinity : deltaProject.angleTo(deltaV);
+            if (angle > Math.PI/4 && Math.abs(interset.point.y - wPos.y) > 0.001) {
+                if (interset.point.y > wPos.y) {
+                    this.el.emit('nav-agent-move', {move: 'up'})
+                } else {
+                    this.el.emit('nav-agent-move', {move: 'down'})
+                }
+            }
+        }
+        
+        obj3D.position.copy(interset.point);
+      }
   })(),
 });

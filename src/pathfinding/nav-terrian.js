@@ -4,9 +4,9 @@
  * Waits for a mesh to be loaded on the current entity, then sets it as the
  * nav mesh in the pathfinding system.
  */
-module.exports = AFRAME.registerComponent("nav-mesh", {
+module.exports = AFRAME.registerComponent("nav-terrian", {
   schema: {
-    nodeName: { type: "string" }
+    terrianName: { type: "string" },
   },
 
   init: function () {
@@ -27,17 +27,17 @@ module.exports = AFRAME.registerComponent("nav-mesh", {
 
     if (!object) return;
 
-    let navMesh;
+    let terrianMesh;
     object.traverse((node) => {
-      if (node.isMesh && (!self.nodeName || node.name === self.nodeName)) {
-        navMesh = node;
+      if (node.isObject3D && node.name === self.data.terrianName) {
+        terrianMesh = node;
       }
     });
 
-    if (!navMesh) return;
+    if (!terrianMesh) return;
 
     scene.updateMatrixWorld();
-    this.system.setNavMeshGeometry(navMesh.geometry);
+    this.system.setTerrianMesh(terrianMesh);
     this.hasLoadedNavMesh = true;
   },
 });

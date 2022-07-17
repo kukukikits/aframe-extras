@@ -1,17 +1,18 @@
-const { Pathfinding } = require('three-pathfinding');
+const { Pathfinding } = require("three-pathfinding");
 
 const pathfinder = new Pathfinding();
-const ZONE = 'level';
+const ZONE = "level";
 
 /**
  * nav
  *
  * Pathfinding system, using PatrolJS.
  */
-module.exports = AFRAME.registerSystem('nav', {
+module.exports = AFRAME.registerSystem("nav", {
   init: function () {
     this.navMesh = null;
     this.agents = new Set();
+    this.terrianMesh = null;
   },
 
   /**
@@ -51,9 +52,7 @@ module.exports = AFRAME.registerSystem('nav', {
    * @return {Array<THREE.Vector3>}
    */
   getPath: function (start, end, groupID) {
-    return this.navMesh
-      ? pathfinder.findPath(start, end, ZONE, groupID)
-      : null;
+    return this.navMesh ? pathfinder.findPath(start, end, ZONE, groupID) : null;
   },
 
   /**
@@ -61,9 +60,7 @@ module.exports = AFRAME.registerSystem('nav', {
    * @return {number}
    */
   getGroup: function (position) {
-    return this.navMesh
-      ? pathfinder.getGroup(ZONE, position)
-      : null;
+    return this.navMesh ? pathfinder.getGroup(ZONE, position) : null;
   },
 
   /**
@@ -73,8 +70,8 @@ module.exports = AFRAME.registerSystem('nav', {
    */
   getNode: function (position, groupID) {
     return this.navMesh
-      // disable geometry within check. Player would get stuck and overstep the boundary if set to true.
-      ? pathfinder.getClosestNode(position, ZONE, groupID, false)
+      ? // disable geometry within check. Player would get stuck and overstep the boundary if set to true.
+        pathfinder.getClosestNode(position, ZONE, groupID, false)
       : null;
   },
 
@@ -95,5 +92,38 @@ module.exports = AFRAME.registerSystem('nav', {
       return this.getNode(end, groupID);
     }
     return pathfinder.clampStep(start, end, node, ZONE, groupID, endTarget);
-  }
+  },
+
+  setTerrianMesh: function (terrianMesh) {
+    this.terrianMesh = terrianMesh;
+  },
+
+  getTerrianMesh: function () {
+    return this.terrianMesh;
+  },
+
+  getTerrianIntersect: (function () {
+    let origin = new THREE.Vector3();
+    let direction = new THREE.Vector3(0, -1, 0);
+    let raycaster = new THREE.Raycaster(origin, direction);
+    let target = [];
+    return function (point) {
+      if (!this.terrianMesh) {
+        return;
+      }
+      origin.copy(point);
+      origin.y += 1.5;
+      target.length = 0;
+      let intersections = raycaster.intersectObject(
+        this.terrianMesh,
+        true,
+        target
+      );
+      if (intersections && intersections.length > 0) {
+        let res = intersections[0];
+        target.length = 0;
+        return res;
+      }
+    };
+  })(),
 });
