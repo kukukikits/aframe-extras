@@ -59,8 +59,8 @@ module.exports = AFRAME.registerSystem("nav", {
    * @param {THREE.Vector3} position
    * @return {number}
    */
-  getGroup: function (position) {
-    return this.navMesh ? pathfinder.getGroup(ZONE, position) : null;
+   getGroup: function (position, checkPolygon = false) {
+    return this.navMesh ? pathfinder.getGroup(ZONE, position, checkPolygon) : null;
   },
 
   /**
@@ -68,10 +68,10 @@ module.exports = AFRAME.registerSystem("nav", {
    * @param  {number} groupID
    * @return {Node}
    */
-  getNode: function (position, groupID) {
+   getNode: function (position, groupID, checkPolygon = false) {
     return this.navMesh
       ? // disable geometry within check. Player would get stuck and overstep the boundary if set to true.
-        pathfinder.getClosestNode(position, ZONE, groupID, false)
+        pathfinder.getClosestNode(position, ZONE, groupID, checkPolygon)
       : null;
   },
 
@@ -121,7 +121,7 @@ module.exports = AFRAME.registerSystem("nav", {
         return;
       }
       origin.copy(point);
-      origin.y += 1.5;
+      origin.y += 0.5;
       target.length = 0;
       let intersections = raycaster.intersectObject(terrian, true, target);
       if (intersections && intersections.length > 0) {

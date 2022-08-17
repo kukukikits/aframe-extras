@@ -12,7 +12,7 @@ require('./src/misc');
 require('./src/pathfinding');
 require('./src/primitives');
 
-},{"./src/controls":15,"./src/loaders":24,"./src/misc":29,"./src/pathfinding":35,"./src/primitives":43}],3:[function(require,module,exports){
+},{"./src/controls":15,"./src/loaders":24,"./src/misc":29,"./src/pathfinding":35,"./src/primitives":44}],3:[function(require,module,exports){
 'use strict';
 
 /**
@@ -49326,10 +49326,11 @@ module.exports = AFRAME.registerComponent('sphere-collider', {
 'use strict';
 
 require('./nav-mesh');
+require('./nav-terrian');
 require('./nav-agent');
 require('./system');
 
-},{"./nav-agent":36,"./nav-mesh":37,"./system":38}],36:[function(require,module,exports){
+},{"./nav-agent":36,"./nav-mesh":37,"./nav-terrian":38,"./system":39}],36:[function(require,module,exports){
 "use strict";
 
 var PI_2 = Math.PI / 2;
@@ -49339,7 +49340,8 @@ module.exports = AFRAME.registerComponent("nav-agent", {
     active: { default: false },
     speed: { default: 2 },
     gazeTarget: { type: "selector" }, // gaze at target when navigating
-    mode: { default: "animate", oneOf: ["teleport", "animate"] // 移动模式
+    mode: { default: "animate", oneOf: ["teleport", "animate"] }, // 移动模式
+    viewSync: { default: true, type: 'boolean' // 是否同步相机视角
     } },
   init: function init() {
     var _this = this;
@@ -49363,6 +49365,7 @@ module.exports = AFRAME.registerComponent("nav-agent", {
   },
   update: function update() {
     this.path.length = 0;
+    this.clearState();
   },
   updateNavLocation: function updateNavLocation() {
     this.group = null;
@@ -49440,7 +49443,6 @@ module.exports = AFRAME.registerComponent("nav-agent", {
     var vTarget = new THREE.Vector3();
     var vEulerRot = new THREE.Euler();
     var vPreEulerRot = new THREE.Euler();
-
     return function (t, dt) {
       var el = this.el;
       var data = this.data;
@@ -49451,10 +49453,11 @@ module.exports = AFRAME.registerComponent("nav-agent", {
       // Smoothly rotate when navigating around corners.
       // 如果子节点中存在lookControls，那么将旋转的对象设置为lookControls
       var rotateTarget = this.lookControls ? this.camera : el.object3D;
-
+      var vCurrent = this.getNavStart(el.object3D);
       // Use PatrolJS pathfinding system to get shortest path to target.
       if (!this.path.length) {
-        var position = this.el.object3D.position;
+        // const position = this.el.object3D.position;
+        var position = vCurrent;
         vDest.copy(data.destination);
         this.group = this.group || this.system.getGroup(position);
 
@@ -49484,7 +49487,8 @@ module.exports = AFRAME.registerComponent("nav-agent", {
       }
 
       // Current segment is a vector from current position to next waypoint.
-      var vCurrent = el.object3D.position;
+      // const vCurrent = el.object3D.position;
+      //   const vCurrent = this.getNavStart(el.object3D);
       var vWaypoint = this.path[0];
       vDelta.subVectors(vWaypoint, vCurrent);
 
@@ -49492,9 +49496,10 @@ module.exports = AFRAME.registerComponent("nav-agent", {
       if (this.data.mode === "teleport") {
         var targetPoint = this.path[this.path.length - 1];
         vCurrent.copy(targetPoint);
+        this.terrianMove(el.object3D, dt);
         // 获取总共需要旋转多少的姿态数据到vQuaternion
         // 如果指定了gazeTarget，再旋转
-        if (!this.isMWControlsEnabled() && this.data.gazeTarget && this.data.gazeTarget.object3D) {
+        if (this.data.viewSync && !this.isMWControlsEnabled() && this.data.gazeTarget && this.data.gazeTarget.object3D) {
           this._getVQuaternion(vQuaternion, vOriQuaternion, rotateTarget, vTarget, null);
           this._updateRotation(vPreEulerRot, vEulerRot, vOriQuaternion, vQuaternion, rotateTarget, 1);
         }
@@ -49516,11 +49521,14 @@ module.exports = AFRAME.registerComponent("nav-agent", {
         var moved = this.path.shift();
         var mwcEnabled = this.isMWControlsEnabled();
         var rotationGap = mwcEnabled ? 0 : THREE.MathUtils.radToDeg(rotateTarget.quaternion.angleTo(vQuaternion));
+        if (!this.data.viewSync) {
+          rotationGap = 0;
+        }
         var rotationDone = Math.abs(rotationGap) < 0.2; // default slerp interpolation factor is 0.1
         // After discarding the last waypoint, exit pathfinding.
         if (!this.path.length && rotationDone) {
           // 获取总共需要旋转多少的姿态数据到vQuaternion
-          if (!mwcEnabled) {
+          if (!mwcEnabled && this.data.viewSync) {
             this._getVQuaternion(vQuaternion, vOriQuaternion, rotateTarget, vTarget, moved);
             this._updateRotation(vPreEulerRot, vEulerRot, vOriQuaternion, vQuaternion, rotateTarget, 1);
           }
@@ -49546,12 +49554,13 @@ module.exports = AFRAME.registerComponent("nav-agent", {
       }
 
       // 获取总共需要旋转多少的姿态数据到vQuaternion
-      if (!this.isMWControlsEnabled()) {
+      if (!this.isMWControlsEnabled() && this.data.viewSync) {
         this._getVQuaternion(vQuaternion, vOriQuaternion, rotateTarget, vTarget, gazeTarget);
         this._updateRotation(vPreEulerRot, vEulerRot, vOriQuaternion, vQuaternion, rotateTarget);
       }
 
       vCurrent.copy(vNext);
+      this.terrianMove(el.object3D, dt);
 
       // 不使用下面的这个，会导致视角闪烁
       // Raycast against the nav mesh, to keep the agent moving along the
@@ -49570,11 +49579,58 @@ module.exports = AFRAME.registerComponent("nav-agent", {
       //   vCurrent.add(vDelta.setLength(speed));
       // }
     };
+  }(),
+  getNavStart: function getNavStart(obj3D) {
+    if (!obj3D._navPoint) {
+      obj3D._navPoint = this.system.getNavStart(obj3D.position);
+      if (!obj3D._navPoint) {
+        obj3D._navPoint = new THREE.Vector3();
+        obj3D._navPoint.copy(obj3D.position);
+      } else {
+        obj3D._navPoint = obj3D._navPoint.point;
+      }
+    }
+    return obj3D._navPoint;
+  },
+  clearState: function clearState() {
+    delete this.el.object3D._navPoint;
+    this.updateNavLocation();
+  },
+  terrianMove: function () {
+    var wPos = new THREE.Vector3();
+    var deltaV = new THREE.Vector3();
+    var deltaProject = new THREE.Vector3();
+    var yNormal = new THREE.Vector3(0, 1, 0);
+    return function (obj3D, dt) {
+      obj3D.getWorldPosition(wPos);
+      obj3D.position.copy(obj3D._navPoint);
+      var interset = this.system.getTerrianIntersect(obj3D._navPoint);
+      if (!interset) {
+        return;
+      }
+
+      // 检测上下坡
+      if (!interset.point.equals(wPos)) {
+        deltaV.subVectors(interset.point, wPos);
+        deltaProject.copy(deltaV);
+        deltaProject.projectOnPlane(yNormal);
+        var angle = deltaProject.lengthSq() == 0 ? Infinity : deltaProject.angleTo(deltaV);
+        if (angle > Math.PI / 4 && Math.abs(interset.point.y - wPos.y) > 0.001) {
+          if (interset.point.y > wPos.y) {
+            this.el.emit('nav-agent-move', { move: 'up' });
+          } else {
+            this.el.emit('nav-agent-move', { move: 'down' });
+          }
+        }
+      }
+      obj3D.position.y = interset.point.y;
+      // obj3D.position.copy(interset.point);
+    };
   }()
 });
 
 },{}],37:[function(require,module,exports){
-'use strict';
+"use strict";
 
 /**
  * nav-mesh
@@ -49583,16 +49639,16 @@ module.exports = AFRAME.registerComponent("nav-agent", {
  * nav mesh in the pathfinding system.
  */
 
-module.exports = AFRAME.registerComponent('nav-mesh', {
+module.exports = AFRAME.registerComponent("nav-mesh", {
   schema: {
-    nodeName: { type: 'string' }
+    nodeName: { type: "string" }
   },
 
   init: function init() {
     this.system = this.el.sceneEl.systems.nav;
     this.hasLoadedNavMesh = false;
     this.nodeName = this.data.nodeName;
-    this.el.addEventListener('object3dset', this.loadNavMesh.bind(this));
+    this.el.addEventListener("object3dset", this.loadNavMesh.bind(this));
   },
 
   play: function play() {
@@ -49601,14 +49657,16 @@ module.exports = AFRAME.registerComponent('nav-mesh', {
 
   loadNavMesh: function loadNavMesh() {
     var self = this;
-    var object = this.el.getObject3D('mesh');
+    var object = this.el.getObject3D("mesh");
     var scene = this.el.sceneEl.object3D;
 
     if (!object) return;
 
     var navMesh = void 0;
     object.traverse(function (node) {
-      if (node.isMesh && (!self.nodeName || node.name === self.nodeName)) navMesh = node;
+      if (node.isMesh && (!self.nodeName || node.name === self.nodeName)) {
+        navMesh = node;
+      }
     });
 
     if (!navMesh) return;
@@ -49620,23 +49678,72 @@ module.exports = AFRAME.registerComponent('nav-mesh', {
 });
 
 },{}],38:[function(require,module,exports){
-'use strict';
+"use strict";
 
-var _require = require('three-pathfinding'),
+/**
+ * nav-mesh
+ *
+ * Waits for a mesh to be loaded on the current entity, then sets it as the
+ * nav mesh in the pathfinding system.
+ */
+
+module.exports = AFRAME.registerComponent("nav-terrian", {
+  schema: {
+    terrianName: { type: "string" }
+  },
+
+  init: function init() {
+    this.system = this.el.sceneEl.systems.nav;
+    this.hasLoadedNavMesh = false;
+    this.nodeName = this.data.nodeName;
+    this.el.addEventListener("object3dset", this.loadNavMesh.bind(this));
+  },
+
+  play: function play() {
+    if (!this.hasLoadedNavMesh) this.loadNavMesh();
+  },
+
+  loadNavMesh: function loadNavMesh() {
+    var self = this;
+    var object = this.el.getObject3D("mesh");
+    var scene = this.el.sceneEl.object3D;
+
+    if (!object) return;
+
+    var terrianMesh = void 0;
+    object.traverse(function (node) {
+      if (node.isObject3D && node.name === self.data.terrianName) {
+        terrianMesh = node;
+      }
+    });
+
+    if (!terrianMesh) return;
+
+    scene.updateMatrixWorld();
+    this.system.setTerrianMesh(terrianMesh);
+    this.hasLoadedNavMesh = true;
+  }
+});
+
+},{}],39:[function(require,module,exports){
+"use strict";
+
+var _require = require("three-pathfinding"),
     Pathfinding = _require.Pathfinding;
 
 var pathfinder = new Pathfinding();
-var ZONE = 'level';
+var ZONE = "level";
 
 /**
  * nav
  *
  * Pathfinding system, using PatrolJS.
  */
-module.exports = AFRAME.registerSystem('nav', {
+module.exports = AFRAME.registerSystem("nav", {
   init: function init() {
     this.navMesh = null;
     this.agents = new Set();
+    this.terrianMesh = null;
   },
 
   /**
@@ -49686,7 +49793,9 @@ module.exports = AFRAME.registerSystem('nav', {
    * @return {number}
    */
   getGroup: function getGroup(position) {
-    return this.navMesh ? pathfinder.getGroup(ZONE, position) : null;
+    var checkPolygon = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
+
+    return this.navMesh ? pathfinder.getGroup(ZONE, position, checkPolygon) : null;
   },
 
   /**
@@ -49695,9 +49804,10 @@ module.exports = AFRAME.registerSystem('nav', {
    * @return {Node}
    */
   getNode: function getNode(position, groupID) {
-    return this.navMesh
-    // disable geometry within check. Player would get stuck and overstep the boundary if set to true.
-    ? pathfinder.getClosestNode(position, ZONE, groupID, false) : null;
+    var checkPolygon = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
+
+    return this.navMesh ? // disable geometry within check. Player would get stuck and overstep the boundary if set to true.
+    pathfinder.getClosestNode(position, ZONE, groupID, checkPolygon) : null;
   },
 
   /**
@@ -49717,10 +49827,48 @@ module.exports = AFRAME.registerSystem('nav', {
       return this.getNode(end, groupID);
     }
     return pathfinder.clampStep(start, end, node, ZONE, groupID, endTarget);
-  }
+  },
+
+  setTerrianMesh: function setTerrianMesh(terrianMesh) {
+    this.terrianMesh = terrianMesh;
+  },
+
+  getTerrianMesh: function getTerrianMesh() {
+    return this.terrianMesh;
+  },
+
+  getTerrianIntersect: function getTerrianIntersect(point) {
+    return this.projectPoint(point, this.terrianMesh);
+  },
+
+  getNavStart: function getNavStart(point) {
+    return this.projectPoint(point, this.navMesh);
+  },
+
+  // 把点point从上到下投影到terrian mesh上，并返回第一个交点信息
+  projectPoint: function () {
+    var origin = new THREE.Vector3();
+    var direction = new THREE.Vector3(0, -1, 0);
+    var raycaster = new THREE.Raycaster(origin, direction);
+    var target = [];
+    return function (point, terrian) {
+      if (!terrian || !point) {
+        return;
+      }
+      origin.copy(point);
+      origin.y += 0.5;
+      target.length = 0;
+      var intersections = raycaster.intersectObject(terrian, true, target);
+      if (intersections && intersections.length > 0) {
+        var res = intersections[0];
+        target.length = 0;
+        return res;
+      }
+    };
+  }()
 });
 
-},{"three-pathfinding":11}],39:[function(require,module,exports){
+},{"three-pathfinding":11}],40:[function(require,module,exports){
 'use strict';
 
 /**
@@ -49749,7 +49897,7 @@ module.exports = AFRAME.registerPrimitive('a-grid', {
   }
 });
 
-},{}],40:[function(require,module,exports){
+},{}],41:[function(require,module,exports){
 'use strict';
 
 var vg = require('../../lib/hex-grid.min.js');
@@ -49809,7 +49957,7 @@ module.exports.Component = AFRAME.registerComponent('hexgrid', {
   }
 });
 
-},{"../../lib/default-hex-grid":7,"../../lib/hex-grid.min.js":9}],41:[function(require,module,exports){
+},{"../../lib/default-hex-grid":7,"../../lib/hex-grid.min.js":9}],42:[function(require,module,exports){
 'use strict';
 
 /**
@@ -49912,7 +50060,7 @@ module.exports.Component = AFRAME.registerComponent('ocean', {
   }
 });
 
-},{}],42:[function(require,module,exports){
+},{}],43:[function(require,module,exports){
 'use strict';
 
 /**
@@ -49984,7 +50132,7 @@ module.exports.Component = AFRAME.registerComponent('tube', {
   }
 });
 
-},{}],43:[function(require,module,exports){
+},{}],44:[function(require,module,exports){
 'use strict';
 
 require('./a-grid');
@@ -49992,4 +50140,4 @@ require('./a-hexgrid');
 require('./a-ocean');
 require('./a-tube');
 
-},{"./a-grid":39,"./a-hexgrid":40,"./a-ocean":41,"./a-tube":42}]},{},[1]);
+},{"./a-grid":40,"./a-hexgrid":41,"./a-ocean":42,"./a-tube":43}]},{},[1]);
