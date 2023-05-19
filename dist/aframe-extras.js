@@ -48225,7 +48225,10 @@ module.exports = AFRAME.registerComponent('animation-mixer', {
       this.load(model);
     } else {
       this.el.addEventListener('model-loaded', function (e) {
-        _this.load(e.detail.model);
+        // fix bug: el.child也会触发model-loaded事件
+        if (_this.el === e.detail.model.el) {
+          _this.load(e.detail.model);
+        }
       });
     }
   },

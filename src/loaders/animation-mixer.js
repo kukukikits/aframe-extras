@@ -37,7 +37,10 @@ module.exports = AFRAME.registerComponent('animation-mixer', {
       this.load(model);
     } else {
       this.el.addEventListener('model-loaded', (e) => {
-        this.load(e.detail.model);
+        // fix bug: el.child也会触发model-loaded事件
+        if (this.el === e.detail.model.el) {
+            this.load(e.detail.model);
+        }
       });
     }
   },
