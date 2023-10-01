@@ -20,7 +20,7 @@ module.exports = AFRAME.registerComponent('animation-mixer', {
     loop: { default: 'repeat', oneOf: Object.keys(LoopMode) },
     repetitions: { default: Infinity, min: 0 },
     timeScale: { default: 1 },
-    // startAt: { default: 0 } TODO： 先禁用这个属性，这个属性会导致动画播放不太正常，也有可能是我自己使用不对
+    startAt: { default: 0 }
   },
 
   init: function () {
