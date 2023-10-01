@@ -20,7 +20,7 @@ module.exports = AFRAME.registerComponent('animation-mixer', {
     loop: { default: 'repeat', oneOf: Object.keys(LoopMode) },
     repetitions: { default: Infinity, min: 0 },
     timeScale: { default: 1 },
-    // startFrame: { default: 0 } TODO： 先禁用这个属性，这个属性会导致动画播放不太正常，也有可能是我自己使用不对
+    // startAt: { default: 0 } TODO： 先禁用这个属性，这个属性会导致动画播放不太正常，也有可能是我自己使用不对
   },
 
   init: function () {
@@ -121,6 +121,11 @@ module.exports = AFRAME.registerComponent('animation-mixer', {
         action.clampWhenFinished = data.clampWhenFinished;
         if (data.duration) action.setDuration(data.duration);
         if (data.timeScale !== 1) action.setEffectiveTimeScale(data.timeScale);
+        // animation-mixer.startAt and AnimationAction.startAt have very different meanings.
+        // animation-mixer.startAt indicates which frame in the animation to start at, in msecs.
+        // AnimationAction.startAt indicates when to start the animation (from the 1st frame),
+        // measured in global mixer time, in seconds.
+        action.startAt(this.mixer.time - data.startAt / 1000);
         action
           .setLoop(LoopMode[data.loop], data.repetitions)
           .fadeIn(data.crossFadeDuration)

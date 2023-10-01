@@ -49,6 +49,7 @@ Object.keys(streams).forEach((fileName) => {
 
   browserify()
     .transform('babelify', {presets: ['env']})
+    .external(['three']) // Add the external module(s) here
     .add(streams[fileName])
     .bundle()
     .pipe(writeStream);

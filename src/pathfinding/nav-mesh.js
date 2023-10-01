@@ -36,8 +36,10 @@ module.exports = AFRAME.registerComponent("nav-mesh", {
 
     if (!navMesh) return;
 
-    scene.updateMatrixWorld();
-    this.system.setNavMeshGeometry(navMesh.geometry);
+    const navMeshGeometry = navMesh.geometry.clone();
+    navMesh.updateWorldMatrix(true, false);
+    navMeshGeometry.applyMatrix4(navMesh.matrixWorld);
+    this.system.setNavMeshGeometry(navMeshGeometry);
     this.hasLoadedNavMesh = true;
   },
 });

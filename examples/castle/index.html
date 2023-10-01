@@ -4,9 +4,9 @@
     <meta http-equiv="content-type" content="text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1,shrink-to-fit=no,user-scalable=no,maximum-scale=1">
     <title>Examples • Castle</title>
-    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="../bundle.js"></script>
-    <script src="https://unpkg.com/aframe-environment-component@1.2.0/dist/aframe-environment-component.min.js"></script>
+    <script src="https://unpkg.com/aframe-environment-component@1.3.3/dist/aframe-environment-component.min.js"></script>
     <script>
 /**
  * Basic emissive effect.
@@ -68,8 +68,8 @@ AFRAME.registerComponent('not-mobile',  {
       <!-- Player. -->
       <a-entity id="rig"
                 movement-controls="constrainToNavMesh: true;
-                                   controls: checkpoint, gamepad, trackpad, keyboard, touch;"
-                position="-7 0 1">
+                                   controls: checkpoint, gamepad, trackpad, keyboard, nipple;"
+                position="-7 0 21">
         <a-entity camera
                   position="0 1.6 0"
                   look-controls="pointerLockEnabled: true">
@@ -101,10 +101,11 @@ AFRAME.registerComponent('not-mobile',  {
       <a-entity nav-mesh
                 normal-material
                 visible="false"
+                position="0 0 20"
                 gltf-model="#navmesh"></a-entity>
 
       <!-- Scene. -->
-      <a-entity position="0 0 0"
+      <a-entity position="0 0 20"
                 scale="3 3 3"
                 gltf-model="#castle">
       </a-entity>

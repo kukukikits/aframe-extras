@@ -62,17 +62,21 @@ module.exports = AFRAME.registerComponent('movement-controls', {
         ? nav.addAgent(this)
         : nav.removeAgent(this);
     }
+    if (data.enabled !== prevData.enabled) {
+      // Propagate the enabled change to all controls
+      for (let i = 0; i < data.controls.length; i++) {
+        const name = data.controls[i] + COMPONENT_SUFFIX;
+        this.el.setAttribute(name, { enabled: this.data.enabled });
+      }
+    }
   },
 
   injectControls: function () {
     const data = this.data;
-    var name;
 
     for (let i = 0; i < data.controls.length; i++) {
-      name = data.controls[i] + COMPONENT_SUFFIX;
-      if (!this.el.components[name]) {
-        this.el.setAttribute(name, '');
-      }
+      const name = data.controls[i] + COMPONENT_SUFFIX;
+      this.el.setAttribute(name, { enabled: this.data.enabled });
     }
   },
 
@@ -215,6 +219,7 @@ module.exports = AFRAME.registerComponent('movement-controls', {
           vector2.set(dVelocity.x, dVelocity.z);
           vector2.setLength(factor * this.data.speed * 16.66667);
           velocity.x = vector2.x;
+          velocity.y = 0;
           velocity.z = vector2.y;
         }
       }

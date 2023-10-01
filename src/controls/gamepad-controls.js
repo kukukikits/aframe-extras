@@ -38,9 +38,6 @@ module.exports = AFRAME.registerComponent('gamepad-controls', {
     // Enable/disable gamepad-controls
     enabled: { default: true },
 
-    // Heading element for rotation
-    camera: { default: '[camera]', type: 'selector' },
-
     // Rotation sensitivity
     rotationSensitivity: { default: 2.0 },
   },
@@ -65,10 +62,10 @@ module.exports = AFRAME.registerComponent('gamepad-controls', {
     // Rotation
     const rotation = this.el.object3D.rotation;
     this.pitch = new THREE.Object3D();
-    this.pitch.rotation.x = THREE.Math.degToRad(rotation.x);
+    this.pitch.rotation.x = rotation.x;
     this.yaw = new THREE.Object3D();
     this.yaw.position.y = 10;
-    this.yaw.rotation.y = THREE.Math.degToRad(rotation.y);
+    this.yaw.rotation.y = rotation.y;
     this.yaw.add(this.pitch);
 
     this._lookVector = new THREE.Vector2();
@@ -158,14 +155,11 @@ module.exports = AFRAME.registerComponent('gamepad-controls', {
     const data = this.data;
     const yaw = this.yaw;
     const pitch = this.pitch;
-    const lookControls = data.camera.components['look-controls'];
-    const hasLookControls = lookControls && lookControls.pitchObject && lookControls.yawObject;
 
-    // Sync with look-controls pitch/yaw if available.
-    if (hasLookControls) {
-      pitch.rotation.copy(lookControls.pitchObject.rotation);
-      yaw.rotation.copy(lookControls.yawObject.rotation);
-    }
+    // First copy camera rig pitch/yaw, it may have been changed from
+    // another component.
+    yaw.rotation.y = this.el.object3D.rotation.y;
+    pitch.rotation.x = this.el.object3D.rotation.x;
 
     const lookVector = this._lookVector;
 
@@ -178,13 +172,7 @@ module.exports = AFRAME.registerComponent('gamepad-controls', {
     yaw.rotation.y -= lookVector.x;
     pitch.rotation.x -= lookVector.y;
     pitch.rotation.x = Math.max(- Math.PI / 2, Math.min(Math.PI / 2, pitch.rotation.x));
-    data.camera.object3D.rotation.set(pitch.rotation.x, yaw.rotation.y, 0);
-
-    // Sync with look-controls pitch/yaw if available.
-    if (hasLookControls) {
-      lookControls.pitchObject.rotation.copy(pitch.rotation);
-      lookControls.yawObject.rotation.copy(yaw.rotation);
-    }
+    this.el.object3D.rotation.set(pitch.rotation.x, yaw.rotation.y, 0);
   },
 
   /*******************************************************************
@@ -251,7 +239,7 @@ module.exports = AFRAME.registerComponent('gamepad-controls', {
         const xrController = this.system.controllers[i];
         const xrGamepad = xrController ? xrController.gamepad : null;
         _xrGamepads.push(xrGamepad);
-        if (xrGamepad && xrGamepad.handedness === handPreference) return xrGamepad;
+        if (xrGamepad && xrController.handedness === handPreference) return xrGamepad;
       }
 
       // https://developer.mozilla.org/en-US/docs/Web/API/Gamepad/hand
@@ -292,11 +280,16 @@ module.exports = AFRAME.registerComponent('gamepad-controls', {
    */
   getJoystick: function (index, target) {
     const gamepad = this.getGamepad(index === Joystick.MOVEMENT ? Hand.LEFT : Hand.RIGHT);
+    // gamepad can be null here if it becomes disconnected even if isConnected() was called
+    // in the same tick before calling getJoystick.
+    if (!gamepad) {
+      return target.set(0, 0);
+    }
     if (gamepad.mapping === 'xr-standard') {
       // See: https://github.com/donmccurdy/aframe-extras/issues/307
       switch (index) {
         case Joystick.MOVEMENT: return target.set(gamepad.axes[2], gamepad.axes[3]);
-        case Joystick.ROTATION: return target.set(gamepad.axes[0], gamepad.axes[1]);
+        case Joystick.ROTATION: return target.set(gamepad.axes[2], 0);
       }
     } else {
       switch (index) {
@@ -314,6 +307,9 @@ module.exports = AFRAME.registerComponent('gamepad-controls', {
    */
   getDpad: function (target) {
     const gamepad = this.getGamepad(Hand.LEFT);
+    if (!gamepad) {
+      return target.set(0, 0);
+    }
     if (!gamepad.buttons[GamepadButton.DPAD_RIGHT]) {
       return target.set(0, 0);
     }
