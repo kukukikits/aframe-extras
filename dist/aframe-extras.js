@@ -10801,7 +10801,9 @@ module.exports = AFRAME.registerSystem("nav", {
         return;
       }
       origin.copy(point);
-      origin.y += 0.5;
+      origin.y += 1.5;
+      // needs update
+      raycaster.set(origin, direction);
       target.length = 0;
       var intersections = raycaster.intersectObject(terrian, true, target);
       if (intersections && intersections.length > 0) {
