@@ -52,7 +52,9 @@ module.exports = AFRAME.registerComponent('gamepad-controls', {
   init: function () {
     const sceneEl = this.el.sceneEl;
 
-    this.system = sceneEl.systems['tracked-controls-webxr'] || {controllers: []};
+    // tracked-controls-webxr was renamed to tracked-controls in aframe 1.7.0
+    // tracked-controls-webxr is for aframe 1.6.0 and below
+    this.system = sceneEl.systems['tracked-controls'] || sceneEl.systems['tracked-controls-webxr'] || {controllers: []};
 
     this.prevTime = window.performance.now();
 
@@ -193,9 +195,9 @@ module.exports = AFRAME.registerComponent('gamepad-controls', {
         this.buttons[i] = gamepad.buttons[i].pressed;
       }
 
-    } else if (Object.keys(this.buttons)) {
+    } else {
       // Reset state if controls are disabled or controller is lost.
-      this.buttons = {};
+      for (const key in this.buttons) { this.buttons[key] = false; }
     }
   },
 

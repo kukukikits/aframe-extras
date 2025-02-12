@@ -44,10 +44,10 @@ src
 In the [dist/](https://github.com/c-frame/aframe-extras/tree/master/dist) folder, download any package(s) you need. Include the scripts on your page, and all components are automatically registered for you:
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.5.4/dist/aframe-extras.min.js"></script>
 ```
 
-replace `7.0.0` by another tag (for example `7.1.0`) or a commit hash (for example `3e0ab50`) if you want to use a build from master branch.
+replace `7.5.4` by another tag or a commit hash (for example `3e0ab50`) if you want to use a build from master branch.
 You can [look at the commits](https://github.com/c-frame/aframe-extras/commits/master) and use the latest commit hash.
 
 For partial builds, use a subpackage like `aframe-extras.controls.min.js`. Full list of packages above.
@@ -71,10 +71,13 @@ npm install --save aframe-extras
 
 ```javascript
 // index.js
-require('aframe-extras');
+import 'aframe-extras';
+// or specific packages
+import "aframe-extras/controls/index.js";
+import "aframe-extras/pathfinding/index.js";
 ```
 
-Once installed, you'll need to compile your JavaScript using something like [webpack](https://webpack.js.org).
+Once installed, you'll need to compile your JavaScript using something like [webpack](https://webpack.js.org) with three defined as external, see webpack.config.js in this repo for an example.
 
 ## Examples
 
@@ -88,7 +91,7 @@ The following components existed in previous versions of A-Frame Extras, but hav
 
 | Component        | Removed in | Reasons                                                      |
 | ---------------- | ---------- | ------------------------------------------------------------ |
-| `kinematic-body` | 7.0.0      | Using physics for movement is unstable and performs poorly. When preventing players from passing through obstacles, use a navigation mesh instead whenever possible.<br /><br />The `kinematic-body` component constrainted player movement using physics, and depended on [aframe-physics-system](http://github.com/donmccurdy/aframe-physics-system/). Using physics for locomotion is not VR-friendly, and often glitchy even for traditional 3D experiences. [Use a navigation mesh](https://github.com/donmccurdy/aframe-extras/tree/master/src/controls#usage) instead, whenever possible. |
+| `kinematic-body` | 7.0.0      | Using physics for movement is unstable and performs poorly. When preventing players from passing through obstacles, use a navigation mesh instead whenever possible.<br /><br />The `kinematic-body` component constrainted player movement using physics, and depended on [aframe-physics-system](http://github.com/c-frame/aframe-physics-system). Using physics for locomotion is not VR-friendly, and often glitchy even for traditional 3D experiences. [Use a navigation mesh](https://github.com/c-frame/aframe-extras/tree/master/src/controls#usage) instead, whenever possible. |
 | `jump-ability`   | 7.0.0      | Dependent on `kinematic-body`                                |
 | `a-hexgrid`      | 7.0.0      | Was based on [this repo](https://github.com/vonWolfehaus/von-grid), which is no longer maintained, and does not work with recent versions of THREE.js. |
 | `mesh-smooth`    | 7.0.0      | Intended for JSON models, but the JSON Loader is [no longer part of this repo](https://github.com/c-frame/aframe-extras/commit/d079064e6ac55a4cd6bbf64bd46a576e26dd214e).  More background [here](https://github.com/c-frame/aframe-extras/issues/411). |
